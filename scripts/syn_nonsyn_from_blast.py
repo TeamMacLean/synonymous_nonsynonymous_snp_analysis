@@ -74,7 +74,19 @@ translate_table={
 					"TAC":"Y",
 					"TAT":"Y",
 					}
-
+ambiguous_bases={
+				"R":['A','G'],
+				"Y":['C','T'],
+				"S":['G','C'],
+				"W":['A','T'],
+				"K":['G','T'],
+				"M":['A','C'],
+				"B":['C','G','T'],
+				"D":['A','G','T'],
+				"H":['A','C','T'],
+				"V":['A','C','G'],
+				"N":['A','C','G','T'],
+}
 def print_output(queryid, subjectid, basepos, querysubseq, subjectsubseq):
 	# translate the subsequence to amino acide sequences
 	synonymous_result="NS"
@@ -93,7 +105,19 @@ def print_output(queryid, subjectid, basepos, querysubseq, subjectsubseq):
 			if "-" in qsubseq or "-" in ssubseq:
 				qaa = 'X'; saa = 'X'
 			else:
+				# check if there is ambiguous base
+				if qsubseq not in translate_table.keys():
+					for base in qsubseq:
+						if base in ambiguous_bases.keys():
+							qsubseq=qsubseq.replace(base, ambiguous_bases[base][0])
+				if ssubseq not in translate_table.keys():
+					for base in ssubseq:
+						if base in ambiguous_bases.keys():
+							ssubseq=ssubseq.replace(base, ambiguous_bases[base][0])
+
+
 				if len(qsubseq) == 3:
+
 					qaa = translate_table[qsubseq]
 					saa = translate_table[ssubseq]
 
