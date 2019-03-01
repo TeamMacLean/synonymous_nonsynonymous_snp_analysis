@@ -8,7 +8,7 @@ The script takes in the blastn output. While blasting, please use the option -ou
 
 These data is captured from the blastn output -  queryid, subjectid, mismatch number,  query mapped sequence and subject mapped sequences .
 
-If there is no mismatches (0 mismatch), nothing is not with the alignment data. 
+If there is no mismatches (0 mismatch), nothing is done with the alignment data. 
 
 If there is a mismatch, the position of the mismatch is obtained and the few nucleotide sequences (set by variable offset in the script) before and after the mismatch is taken from both query and subject aligned sequences. The nucleotide sequences are then translated to protein sequences in 3 open reading frames (left to right) and then they are compared.
 
