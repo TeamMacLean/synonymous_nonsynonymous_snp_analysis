@@ -35,6 +35,7 @@ DP_13,PP1.0_contig14247,292,KTRDD,KTQDD,KLETT,KLKTT,NSRR,NSRR,S
 ```
 
 Note:
+
 S - synonymous amino acid change
 
 NS - non synonymous amino acid change
