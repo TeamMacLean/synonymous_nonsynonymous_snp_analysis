@@ -3,11 +3,6 @@
 # input should be a blast output file, where blast command should have the ouput format set to -outfmt '6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore sallseqid score nident positive gaps ppos qframe sframe qseq sseq qlen slen salltitles'
 import os, sys
 
-offsets=7
-
-blastfile=open(sys.argv[1])
-
-
 translate_table={
 					"GCA":"A",
 					"GCC":"A",
@@ -89,24 +84,23 @@ ambiguous_bases={
 }
 
 
-def set_syn_or_nonsyn(readingframe_data):
+def set_syn_or_nonsyn(query_aa, subject_aa):
 
 	" checks aminoacid sequence in each reading frame and sets syn or nonsyn"
 	result = None
-	for query_aa, subject_aa in readingframe_data:
-		if ("*" in query_aa) or ("*" in subject_aa):
-			continue
-		elif query_aa == subject_aa:
-			result = "Syn"
-		elif query_aa != subject_aa:
-			result = "NonSyn"
-		else:
-			pass
+
+	if ("*" in query_aa) or ("*" in subject_aa):
+		result = "S"
+	elif query_aa == subject_aa:
+		result = "S"
+	elif query_aa != subject_aa:
+		result = "NS"
+	else:
+		pass
 
 	return result
 
-
-def get_aminoacid_sequence(queryseq, subjectseq):
+def get_aminoacid_sequence(querysubseq, subjectsubseq):
 
 	" get 3 reading frame sequence left to right"
 
@@ -115,7 +109,7 @@ def get_aminoacid_sequence(queryseq, subjectseq):
 	for readingframe in range(3):
 
 		queryaminoacidseq=""; subjectaminoacidseq=""
-		for position in range(0, len(querysubseq), 3):
+		for position in range(readingframe, len(querysubseq), 3):
 
 			qsubseq=querysubseq[position:position + 3]
 			ssubseq=subjectsubseq[position:position + 3]
@@ -138,17 +132,16 @@ def get_aminoacid_sequence(queryseq, subjectseq):
 
 					qaa = translate_table[qsubseq]
 					saa = translate_table[ssubseq]
-				elif len(qsubseq < 3):
+				elif len(qsubseq) < 3:
 					# less than 3 bases not enough for coding amino acid
 					pass
 
 			queryaminoacidseq += qaa
 			subjectaminoacidseq += saa
 
-			readingframe_aminoacid.append((queryaminoacidseq, subjectaminoacidseq))
+		readingframe_aminoacid.append((queryaminoacidseq, subjectaminoacidseq))
 
-	return query_aminoacid, subject_aminoacid
-
+	return readingframe_aminoacid
 
 def get_n_bases_around_mismatch(queryseq, subjectseq, offsets, mismatch_positions):
 	" get N nucleotide bases on left and right side of a mismatch"
@@ -167,11 +160,10 @@ def get_n_bases_around_mismatch(queryseq, subjectseq, offsets, mismatch_position
 			#print(queryid, subjectid, basepos, )
 			querysubseq = queryseq[basepos - offsets:basepos + offsets]; subjectsubseq = subjectseq[basepos-offsets:basepos+offsets]
 
-		bases_around_mismatch.append((query_bases_around_mismatch, subject_bases_around_mismatch))
+		bases_around_mismatch.append((querysubseq, subjectsubseq))
 
 		#print_output(queryid, subjectid, basepos, querysubseq, subjectsubseq)
 	return bases_around_mismatch
-
 
 def get_mismatch_positions(queryseq, subjectseq, total_mismatches):
 
@@ -190,11 +182,9 @@ def get_mismatch_positions(queryseq, subjectseq, total_mismatches):
 
 	return mismatch_positions
 
-
-
-
-
 if __name__ == "__main__":
+	blastfile=open(sys.argv[1])
+	offsets=7
 	for line in blastfile:
 		line=line.rstrip()
 		linearray=line.split()
@@ -210,11 +200,22 @@ if __name__ == "__main__":
 			continue
 		else:
 			mismatch_positions = get_mismatch_positions(queryseq, subjectseq, mismatch)
+			print("mismatch positions ", mismatch_positions)
 			bases_around_mismatch = get_n_bases_around_mismatch(queryseq, subjectseq, offsets, mismatch_positions)
-			syn_nonsyn = "None"; resultline = queryseq + "\t" + subjectseq + "\t"
-			for querybases, subjectbases in bases_around_mismatch:
-				query_aa, subject_aa = get_aminoacid_sequence(querybases, subjectbases)
-				syn_nonsyn = set_syn_or_nonsyn(query_aa, subject_aa)
-				resultline += query_aa + "\t" + subject_aa + "\t"
+			print("bases around mismatch ", bases_around_mismatch)
 
-			print(resultline + "\t" + syn_nonsyn)
+			for querybases, subjectbases in bases_around_mismatch:
+				resultline = queryid + "\t" + subjectid + "\t"
+				aa_sequence = get_aminoacid_sequence(querybases, subjectbases)
+				print("aa sequences ", aa_sequence)
+				result = []
+				for query_aa, subject_aa in aa_sequence:
+
+					syn_nonsyn = set_syn_or_nonsyn(query_aa, subject_aa)
+					resultline += query_aa + "\t" + subject_aa + "\t"
+					result.append(syn_nonsyn)
+
+			if "NS" in result:
+				print(resultline + "\t" + "NS")
+			else:
+				print(resultline + "\t" + "S")
