@@ -87,21 +87,39 @@ ambiguous_bases={
 				"V":['A','C','G'],
 				"N":['A','C','G','T'],
 }
-def print_output(queryid, subjectid, basepos, querysubseq, subjectsubseq):
-	# translate the subsequence to amino acide sequences
-	synonymous_result="NS"
-	line=queryid + "," + subjectid + "," + str(basepos)
-	for readingframe in range(3):
-		#print(querysubseq, subjectsubseq)
-		queryaminoacidseq=""
-		subjectaminoacidseq=""
 
+
+def set_syn_or_nonsyn(readingframe_data):
+
+	" checks aminoacid sequence in each reading frame and sets syn or nonsyn"
+	result = None
+	for query_aa, subject_aa in readingframe_data:
+		if ("*" in query_aa) or ("*" in subject_aa):
+			continue
+		elif query_aa == subject_aa:
+			result = "Syn"
+		elif query_aa != subject_aa:
+			result = "NonSyn"
+		else:
+			pass
+
+	return result
+
+
+def get_aminoacid_sequence(queryseq, subjectseq):
+
+	" get 3 reading frame sequence left to right"
+
+	readingframe_aminoacid = []
+
+	for readingframe in range(3):
+
+		queryaminoacidseq=""; subjectaminoacidseq=""
 		for position in range(0, len(querysubseq), 3):
 
 			qsubseq=querysubseq[position:position + 3]
 			ssubseq=subjectsubseq[position:position + 3]
 
-			#print('translating ', qsubseq, ssubseq)
 			if "-" in qsubseq or "-" in ssubseq:
 				qaa = 'X'; saa = 'X'
 			else:
@@ -120,59 +138,83 @@ def print_output(queryid, subjectid, basepos, querysubseq, subjectsubseq):
 
 					qaa = translate_table[qsubseq]
 					saa = translate_table[ssubseq]
+				elif len(qsubseq < 3):
+					# less than 3 bases not enough for coding amino acid
+					pass
 
 			queryaminoacidseq += qaa
 			subjectaminoacidseq += saa
 
-			if ("*" in queryaminoacidseq or "*" in subjectaminoacidseq):
-				continue
-			elif queryaminoacidseq == subjectaminoacidseq:
-				synonymous_result="S"
-			else:
-				synonymous_result="NS"
+			readingframe_aminoacid.append((queryaminoacidseq, subjectaminoacidseq))
 
-		line += "," + queryaminoacidseq + "," + subjectaminoacidseq
-		querysubseq=querysubseq[1:]
-		subjectsubseq=subjectsubseq[1:]
+	return query_aminoacid, subject_aminoacid
 
 
-	print(line + "," + synonymous_result)
-	#print(queryid, subjectid, basepos, queryaminoacidseq, subjectaminoacidseq)
+def get_n_bases_around_mismatch(queryseq, subjectseq, offsets, mismatch_positions):
+	" get N nucleotide bases on left and right side of a mismatch"
+	counter=0
+	bases_around_mismatch = []
 
-for line in blastfile:
-	line=line.rstrip()
-	linearray=line.split()
-	queryid=linearray[0]
-	subjectid=linearray[1]
-	mismatch=int(linearray[4])
-	queryseq=linearray[20]
-	subjectseq=linearray[21]
+	for basepos in mismatch_positions:
 
-	#print(queryid, subjectid, mismatch, queryseq, subjectseq)
+		if basepos < offsets:
+			#print(queryid, subjectid, basepos,, )
+			querysubseq =  queryseq[:basepos + offsets*2]; subjectsubseq = subjectseq[:basepos+offsets*2]
+		elif basepos + offsets > len(queryseq):
+			#print(queryid, subjectid, basepos, )
+			querysubseq = queryseq[basepos - offsets*2:]; subjectsubseq = subjectseq[basepos-offsets*2:]
+		else:
+			#print(queryid, subjectid, basepos, )
+			querysubseq = queryseq[basepos - offsets:basepos + offsets]; subjectsubseq = subjectseq[basepos-offsets:basepos+offsets]
 
-	if mismatch == 0:
-		continue
-	else:
-		counter=0
-		for basepos in range(len(queryseq)):
+		bases_around_mismatch.append((query_bases_around_mismatch, subject_bases_around_mismatch))
 
-			if (queryseq[basepos] == "-" or subjectseq[basepos] == "-") or queryseq[basepos] == subjectseq[basepos]:
-				continue
-			else:
-				counter+=1
-				#print('basepos: ', basepos)
-				#print("mismatch in position" , basepos, "mismatch counter ", counter, "querybase", queryseq[basepos], "subjectbase", subjectseq[basepos] )
-				if basepos < offsets:
-					#print(queryid, subjectid, basepos,, )
-					querysubseq =  queryseq[:basepos + offsets*2]; subjectsubseq = subjectseq[:basepos+offsets*2]
+		#print_output(queryid, subjectid, basepos, querysubseq, subjectsubseq)
+	return bases_around_mismatch
 
-				elif basepos + offsets > len(queryseq):
-					#print(queryid, subjectid, basepos, )
-					querysubseq = queryseq[basepos - offsets*2:]; subjectsubseq = subjectseq[basepos-offsets*2:]
-				else:
-					#print(queryid, subjectid, basepos, )
-					querysubseq = queryseq[basepos - offsets:basepos + offsets]; subjectsubseq = subjectseq[basepos-offsets:basepos+offsets]
-				print_output(queryid, subjectid, basepos, querysubseq, subjectsubseq)
 
-			if counter == mismatch:
-				break
+def get_mismatch_positions(queryseq, subjectseq, total_mismatches):
+
+	" get zero (0) based positions of mismatches "
+
+	counter=0; mismatch_positions = []
+	for basepos in range(len(queryseq)):
+
+		if (queryseq[basepos] == "-" or subjectseq[basepos] == "-") or queryseq[basepos] == subjectseq[basepos]:
+			continue
+		else:
+			mismatch_positions.append(basepos)
+
+		if counter == total_mismatches:
+			break
+
+	return mismatch_positions
+
+
+
+
+
+if __name__ == "__main__":
+	for line in blastfile:
+		line=line.rstrip()
+		linearray=line.split()
+		queryid=linearray[0]
+		subjectid=linearray[1]
+		mismatch=int(linearray[4])
+		queryseq=linearray[20]
+		subjectseq=linearray[21]
+
+		#print(queryid, subjectid, mismatch, queryseq, subjectseq)
+
+		if mismatch == 0:
+			continue
+		else:
+			mismatch_positions = get_mismatch_positions(queryseq, subjectseq, mismatch)
+			bases_around_mismatch = get_n_bases_around_mismatch(queryseq, subjectseq, offsets, mismatch_positions)
+			syn_nonsyn = "None"; resultline = queryseq + "\t" + subjectseq + "\t"
+			for querybases, subjectbases in bases_around_mismatch:
+				query_aa, subject_aa = get_aminoacid_sequence(querybases, subjectbases)
+				syn_nonsyn = set_syn_or_nonsyn(query_aa, subject_aa)
+				resultline += query_aa + "\t" + subject_aa + "\t"
+
+			print(resultline + "\t" + syn_nonsyn)
